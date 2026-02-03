@@ -26,18 +26,17 @@ app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 app.use("/api", userRoutes);
 app.use(express.static("public"));
-
 app.use("/api/auth", authRoutes);
 app.use("/api/elderly", elderlyRoutes);
 app.use("/api", medicineRoutes);
 app.use("/api", notificationRoutes);
 app.use("/api", healthRoutes);
+app.use("/api/line", lineRoutes);
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT ?? 5000;
 
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);
 });
 
 
-app.use("/api/line", lineRoutes);
