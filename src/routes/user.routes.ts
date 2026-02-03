@@ -1,5 +1,5 @@
 import { Router, Response } from "express";
-import { uploadAvatar } from "../middleware/multerCloudinary"; // ✅ เปลี่ยนมาใช้ cloudinary
+import { uploadAvatar } from "../middleware/uploadAvatar"; // ✅ เปลี่ยนมาใช้ cloudinary
 import { authMiddleware, AuthRequest } from "../middleware/auth.middleware";
 import { db } from "../config/db";
 

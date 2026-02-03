@@ -1,25 +1,27 @@
-import fs from "fs";
-import path from "path";
 import { Request, Response } from "express";
 import { db } from "../config/db";
 
-// เพิ่มข้อมูลยาใหม่ + เวลาที่ต้องทานยา
+/* =================================
+   ADD MEDICINES (หลายรูป)
+================================= */
 export const addMedicines = async (req: Request, res: Response) => {
   try {
     const elderlyId = Number(req.body.elderlyId);
     const medicines = JSON.parse(req.body.data);
+
+    // ⭐ Cloudinary files
     const files = req.files as Express.Multer.File[];
 
     let fileIndex = 0;
 
     for (const med of medicines) {
-      const imagePath = files[fileIndex]
-        ? `/uploads/medicines/${files[fileIndex].filename}`
-        : null;
+      // ✅ ใช้ file.path แทน filename
+      const imageUrl = files[fileIndex] ? files[fileIndex].path : null;
       fileIndex++;
 
       const [result]: any = await db.query(
-        `INSERT INTO medicines (elderly_id, medicine_name, start_date, end_date, side_effect, image)
+        `INSERT INTO medicines 
+         (elderly_id, medicine_name, start_date, end_date, side_effect, image)
          VALUES (?, ?, ?, ?, ?, ?)`,
         [
           elderlyId,
@@ -27,7 +29,7 @@ export const addMedicines = async (req: Request, res: Response) => {
           med.startDate || null,
           med.endDate || null,
           med.sideEffect || null,
-          imagePath,
+          imageUrl,
         ]
       );
 
@@ -35,9 +37,9 @@ export const addMedicines = async (req: Request, res: Response) => {
 
       for (const t of med.schedules) {
         await db.query(
-          `INSERT INTO medicine_times 
-           (medicine_id, dose, dose_type, time, method, is_notify, status)
-           VALUES (?, ?, ?, ?, ?, 1, 'pending')`,
+          `INSERT INTO medicine_times
+          (medicine_id, dose, dose_type, time, method, is_notify, status)
+          VALUES (?, ?, ?, ?, ?, 1, 'pending')`,
           [medicineId, t.dose, t.type, t.time, t.method]
         );
       }
@@ -47,6 +49,70 @@ export const addMedicines = async (req: Request, res: Response) => {
   } catch (err) {
     console.error("SAVE MEDICINE ERROR:", err);
     res.status(500).json({ message: "บันทึกไม่สำเร็จ" });
+  }
+};
+
+
+/* =================================
+   UPDATE MEDICINE (รูปเดียว)
+================================= */
+export const updateMedicine = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const {
+      medicine_name,
+      start_date,
+      end_date,
+      side_effect,
+      times,
+      image: oldImage,
+    } = JSON.parse(req.body.data);
+
+    // ✅ Cloudinary
+    const imageUrl = req.file ? req.file.path : oldImage;
+
+    await db.query(
+      `UPDATE medicines
+       SET medicine_name=?, start_date=?, end_date=?, side_effect=?, image=?
+       WHERE id=?`,
+      [medicine_name, start_date, end_date, side_effect, imageUrl, id]
+    );
+
+    const keepIds: number[] = [];
+
+    for (const t of times) {
+      if (t.id) {
+        await db.query(
+          `UPDATE medicine_times
+           SET dose=?, dose_type=?, time=?, method=?, is_notify=?
+           WHERE id=?`,
+          [t.dose, t.dose_type, t.time, t.method, t.is_notify ? 1 : 0, t.id]
+        );
+        keepIds.push(t.id);
+      } else {
+        const [result]: any = await db.query(
+          `INSERT INTO medicine_times
+          (medicine_id, dose, dose_type, time, method, is_notify, status)
+          VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+          [id, t.dose, t.dose_type, t.time, t.method, t.is_notify ? 1 : 0]
+        );
+        keepIds.push(result.insertId);
+      }
+    }
+
+    if (keepIds.length > 0) {
+      await db.query(
+        `DELETE FROM medicine_times
+         WHERE medicine_id=? AND id NOT IN (?)`,
+        [id, keepIds]
+      );
+    }
+
+    res.json({ message: "แก้ไขข้อมูลสำเร็จ" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "แก้ไขไม่สำเร็จ" });
   }
 };
 
@@ -161,70 +227,6 @@ export const getMedicineById = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "เกิดข้อผิดพลาด" });
-  }
-};
-
-export const updateMedicine = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const {
-      medicine_name,
-      start_date,
-      end_date,
-      side_effect,
-      times,
-      image: oldImage,
-    } = JSON.parse(req.body.data);
-
-    const imagePath = req.file
-      ? `/uploads/medicines/${req.file.filename}`
-      : oldImage;
-
-    await db.query(
-      `UPDATE medicines 
-       SET medicine_name=?, start_date=?, end_date=?, side_effect=?, image=? 
-       WHERE id=?`,
-      [medicine_name, start_date, end_date, side_effect, imagePath, id]
-    );
-
-    const keepIds: number[] = [];
-
-    for (const t of times) {
-      if (t.id) {
-        // เวลาเดิม: แก้เฉพาะข้อมูล ไม่ยุ่งสถานะ
-        await db.query(
-          `UPDATE medicine_times
-          SET dose=?, dose_type=?, time=?, method=?, is_notify=?
-          WHERE id=?`,
-          [t.dose, t.dose_type, t.time, t.method, t.is_notify ? 1 : 0, t.id]
-        );
-        keepIds.push(t.id);
-      } else {
-        // เวลาใหม่: ใส่เป็น pending
-        const [result]: any = await db.query(
-          `INSERT INTO medicine_times
-          (medicine_id, dose, dose_type, time, method, is_notify, status)
-          VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
-          [id, t.dose, t.dose_type, t.time, t.method, t.is_notify ? 1 : 0]
-        );
-        keepIds.push(result.insertId);
-      }
-    }
-
-    // ลบเฉพาะเวลาที่ผู้ใช้ลบจริง
-    if (keepIds.length > 0) {
-      await db.query(
-        `DELETE FROM medicine_times
-        WHERE medicine_id=? AND id NOT IN (?)`,
-        [id, keepIds]
-      );
-    }
-
-
-    res.json({ message: "แก้ไขข้อมูลสำเร็จ" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "แก้ไขไม่สำเร็จ" });
   }
 };
 
