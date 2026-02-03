@@ -77,37 +77,41 @@ export const register = async (req: Request, res: Response) => {
 
 // Request OTP
 export const recovery = async (req: Request, res: Response) => {
-  const { email } = req.body;
-  const [rows]: any = await db.query(
-    "SELECT id FROM users WHERE email = ?",
-    [email]
-  );
-  if (!rows.length)
-    return res.status(404).json({ message: "ไม่พบอีเมลนี้" });
-  const userId = rows[0].id;
-  //ลบ OTP เก่าที่ยังไม่ใช้
-  await db.query(
-    "DELETE FROM otp_codes WHERE user_id = ?",
-    [userId]
-  );
-  await db.query(
-  "DELETE FROM otp_codes WHERE expires_at < NOW()"
-  );
-  // generate OTP
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  await db.query(
-    `INSERT INTO otp_codes (user_id, otp_code, expires_at)
-     VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE))`,
-    [userId, otp]
-  );
-  // ✅ ส่ง OTP เข้า email
-  await sendOtpEmail(email, otp);
-  res.json({ message: "ส่ง OTP แล้ว", userId });
-  // dev only
-  console.log("OTP (dev):", otp);
+  try {
+    const { email } = req.body;
 
+    const [rows]: any = await db.query(
+      "SELECT id FROM users WHERE email = ?",
+      [email]
+    );
+
+    if (!rows.length)
+      return res.status(404).json({ message: "ไม่พบอีเมลนี้" });
+
+    const userId = rows[0].id;
+
+    await db.query("DELETE FROM otp_codes WHERE user_id = ?", [userId]);
+    await db.query("DELETE FROM otp_codes WHERE expires_at < NOW()");
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    await db.query(
+      `INSERT INTO otp_codes (user_id, otp_code, expires_at)
+       VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE))`,
+      [userId, otp]
+    );
+
+    await sendOtpEmail(email, otp);
+
+    console.log("OTP (dev):", otp);
+
+    res.json({ message: "ส่ง OTP แล้ว", userId });
+
+  } catch (err: any) {
+    console.error("Recovery error:", err);
+    res.status(500).json({ message: err.message });
+  }
 };
-
 
 // Verify OTP
 export const verifyOtp = async (req: Request, res: Response) => {
