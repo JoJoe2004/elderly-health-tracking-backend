@@ -1,14 +1,14 @@
 import { Router, Response } from "express";
-import fs from "fs";
-import { uploadAvatar } from "../upload/avatarUpload";
-import { authMiddleware, AuthRequest } from "../middlewares/auth.middleware";
+import { uploadAvatar } from "../middleware/multerCloudinary"; // ✅ เปลี่ยนมาใช้ cloudinary
+import { authMiddleware, AuthRequest } from "../middleware/auth.middleware";
 import { db } from "../config/db";
-import path from "path";
 
 const router = Router();
 
 /**
+ * ===============================
  * GET /api/users/me
+ * ===============================
  */
 router.get(
   "/users/me",
@@ -40,9 +40,11 @@ router.get(
   }
 );
 
-
 /**
+ * ===============================
  * PUT /api/users/me
+ * (Cloudinary version)
+ * ===============================
  */
 router.put(
   "/users/me",
@@ -58,16 +60,12 @@ router.put(
       username = trimmed === "" ? null : trimmed;
     }
 
+    const file = req.file as any;
 
-    const file = req.file;
-
-    // 1️⃣ check username duplicate
+    /* ---------- check duplicate username ---------- */
     if (typeof username === "string") {
       const [dup] = await db.query<any[]>(
-        `
-        SELECT id FROM users
-        WHERE username = ? AND id <> ?
-        `,
+        `SELECT id FROM users WHERE username = ? AND id <> ?`,
         [username, userId]
       );
 
@@ -78,19 +76,9 @@ router.put(
       }
     }
 
-    // 2️⃣ get old avatar
-    const [oldRows] = await db.query<any[]>(
-      `SELECT avatar_url FROM users WHERE id = ?`,
-      [userId]
-    );
+    /* ---------- ⭐ Cloudinary URL ---------- */
+    const newAvatarUrl = file ? file.path : null;
 
-    const oldAvatar = oldRows.length > 0 ? oldRows[0].avatar_url : null;
-
-    const newAvatarUrl = file
-      ? `/uploads/avatars/${file.filename}`
-      : null;
-
-    // 3️⃣ update user
     await db.query(
       `
       UPDATE users
@@ -103,22 +91,9 @@ router.put(
       [username, newAvatarUrl, userId]
     );
 
-    // 4️⃣ delete old avatar
-    if (file && oldAvatar) {
-      fs.unlink(
-        path.join(process.cwd(), oldAvatar),
-        (err) => {
-          if (err) {
-            console.error("Failed to delete old avatar:", err.message);
-          }
-        }
-      );
-    }
-    const finalAvatarUrl = newAvatarUrl ?? oldAvatar;
-
     res.json({
       username,
-      avatarUrl: finalAvatarUrl,
+      avatarUrl: newAvatarUrl,
     });
   }
 );

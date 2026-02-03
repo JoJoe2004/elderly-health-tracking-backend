@@ -1,6 +1,6 @@
 import express from "express";
 import { addMedicines, deleteMedicineTime, getTodayNotifications, getElderlyByMedicineId, getMedicineById, getMedicineTableByElderly, updateMedicine } from "../controllers/medicine.controller";
-import { upload } from "../middlewares/upload";
+import { upload } from "../middleware/upload";
 
 
 const router = express.Router();
