@@ -5,8 +5,8 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 export const sendOtpEmail = async (to: string, otp: string) => {
   await sgMail.send({
     to,
-    from: "navaponbutsa@gmail.com", // ⚠️ ต้องตรงกับ Verified sender
+    from: process.env.EMAIL_FROM!, // ต้อง verified sender
     subject: "รหัส OTP ของคุณ",
-    text: `รหัส OTP ของคุณคือ ${otp}`,
+    text: `รหัส OTP ของคุณคือ ${otp} (หมดอายุใน 5 นาที)`,
   });
 };
