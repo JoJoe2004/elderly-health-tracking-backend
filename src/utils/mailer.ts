@@ -1,18 +1,12 @@
-import nodemailer from "nodemailer";
+import sgMail from "@sendgrid/mail";
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 
 export const sendOtpEmail = async (to: string, otp: string) => {
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
-  await transporter.sendMail({
-    from: `"EHT Support" <${process.env.EMAIL_USER}>`,
+  await sgMail.send({
     to,
+    from: process.env.EMAIL_USER!, // ต้องเป็น email ที่ยืนยันใน SendGrid
     subject: "รหัส OTP ของคุณ",
-    text: `รหัส OTP ของคุณคือ ${otp} (หมดอายุใน 5 นาที)`,
+    text: `รหัส OTP ของคุณคือ ${otp} (หมดอายุใน 5 นาที)`
   });
 };
