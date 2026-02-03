@@ -50,7 +50,9 @@ export const lineCallback = async (req: Request, res: Response) => {
       elderlyId,
     ]);
 
-    res.redirect(`${process.env.FRONTEND_URL}/dashboard/line?refresh=1`);
+    const oaLink = "https://line.me/R/ti/p/@401irdzu";
+
+    res.redirect(oaLink);
   } catch (error) {
     console.error("LINE callback error:", error);
     res.status(500).send("LINE connect failed");
