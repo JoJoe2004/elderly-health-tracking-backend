@@ -100,9 +100,9 @@ export const recovery = async (req: Request, res: Response) => {
        VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE))`,
       [userId, otp]
     );
-
+    console.log("before email");
     await sendOtpEmail(email, otp);
-
+    console.log("after email");
     console.log("OTP (dev):", otp);
 
     res.json({ message: "ส่ง OTP แล้ว", userId });
