@@ -90,9 +90,6 @@ export const recovery = async (req: Request, res: Response) => {
 
     const userId = rows[0].id;
 
-    await db.query("DELETE FROM otp_codes WHERE user_id = ?", [userId]);
-    await db.query("DELETE FROM otp_codes WHERE expires_at < NOW()");
-
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     await db.query(
@@ -100,24 +97,30 @@ export const recovery = async (req: Request, res: Response) => {
        VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE))`,
       [userId, otp]
     );
-   
-    try {
-      await sendOtpEmail(email, otp);
-    } catch (e) {
-      console.error("Email failed:", e);
-    }
+
+    await sendOtpEmail(email, otp);
 
     res.json({ message: "ส่ง OTP แล้ว" });
 
   } catch (err: any) {
-    console.error("Recovery error:", err);
+    console.error(err);
     res.status(500).json({ message: err.message });
   }
 };
 
-// Verify OTP
+
 export const verifyOtp = async (req: Request, res: Response) => {
-  const { userId, otp } = req.body;
+  const { email, otp } = req.body;
+
+  const [userRows]: any = await db.query(
+    "SELECT id FROM users WHERE email = ?",
+    [email]
+  );
+
+  if (!userRows.length)
+    return res.status(404).json({ message: "ไม่พบผู้ใช้" });
+
+  const userId = userRows[0].id;
 
   const [rows]: any = await db.query(
     `SELECT * FROM otp_codes 
@@ -139,6 +142,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
   res.json({ message: "OTP ถูกต้อง" });
 };
+
 
 //Reset passwprd
 export const resetPassword = async (req: Request, res: Response) => {
