@@ -110,30 +110,26 @@ export const recovery = async (req: Request, res: Response) => {
 
 
 export const verifyOtp = async (req: Request, res: Response) => {
-  const { email, otp } = req.body;
+  const { userId, otp } = req.body;
 
-  const [userRows]: any = await db.query(
-    "SELECT id FROM users WHERE email = ?",
-    [email]
-  );
-
-  if (!userRows.length)
-    return res.status(404).json({ message: "ไม่พบผู้ใช้" });
-
-  const userId = userRows[0].id;
+  if (!userId || !otp) {
+    return res.status(400).json({ message: "ข้อมูลไม่ครบ" });
+  }
 
   const [rows]: any = await db.query(
-    `SELECT * FROM otp_codes 
-     WHERE user_id = ? 
-     AND otp_code = ? 
-     AND is_used = 0 
+    `SELECT * FROM otp_codes
+     WHERE user_id = ?
+     AND otp_code = ?
+     AND is_used = 0
      AND expires_at > NOW()
-     ORDER BY created_at DESC LIMIT 1`,
+     ORDER BY created_at DESC
+     LIMIT 1`,
     [userId, otp]
   );
 
-  if (!rows.length)
+  if (!rows.length) {
     return res.status(400).json({ message: "OTP ไม่ถูกต้องหรือหมดอายุ" });
+  }
 
   await db.query(
     "UPDATE otp_codes SET is_used = 1 WHERE id = ?",
@@ -142,6 +138,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
   res.json({ message: "OTP ถูกต้อง" });
 };
+
 
 
 //Reset passwprd
