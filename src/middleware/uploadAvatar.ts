@@ -2,13 +2,6 @@ import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import cloudinary from "../config/cloudinary";
 
-/*
-  ใช้ CloudinaryStorage แทน diskStorage
-  → อัปโหลดตรงเข้า Cloudinary เลย
-  → ไม่ต้องมี /uploads
-  → ใช้ได้บน production (serverless / container)
-*/
-
 const storage = new CloudinaryStorage({
   cloudinary,
 

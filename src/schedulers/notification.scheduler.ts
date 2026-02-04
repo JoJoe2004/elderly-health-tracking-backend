@@ -60,11 +60,11 @@ export const startMedicineScheduler = () => {
         let imageUrl: string | null = null;
 
         if (row.image) {
-          const imagePath = row.image.startsWith("/")
-            ? row.image.slice(1)
-            : row.image;
-
-          imageUrl = `https://syllogistically-painstaking-valarie.ngrok-free.dev/${imagePath}`;
+          if (row.image.startsWith("http")) {
+            imageUrl = row.image; // Cloudinary
+          } else {
+            imageUrl = `${process.env.API_URL}${row.image}`; // local
+          }
         }
         await sendLineMedicineNotify(row.line_user_id, message, row.id, imageUrl);
 
