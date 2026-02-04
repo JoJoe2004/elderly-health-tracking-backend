@@ -100,7 +100,7 @@ export const recovery = async (req: Request, res: Response) => {
 
     await sendOtpEmail(email, otp);
 
-    res.json({ message: "ส่ง OTP แล้ว" });
+    res.json({ message: "ส่ง OTP แล้ว", userId: userId });
 
   } catch (err: any) {
     console.error(err);
