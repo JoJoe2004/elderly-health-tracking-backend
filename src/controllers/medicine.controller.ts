@@ -85,7 +85,7 @@ export const updateMedicine = async (req: Request, res: Response) => {
       if (t.id) {
         await db.query(
           `UPDATE medicine_times
-           SET dose=?, dose_type=?, time=?, method=?, is_notify=?
+           SET dose=?, dose_type=?, time=?, method=?, is_notify=?, notify_count = 0, sent_at = NULL, response_at = NULL
            WHERE id=?`,
           [t.dose, t.dose_type, t.time, t.method, t.is_notify ? 1 : 0, t.id]
         );
@@ -93,8 +93,8 @@ export const updateMedicine = async (req: Request, res: Response) => {
       } else {
         const [result]: any = await db.query(
           `INSERT INTO medicine_times
-          (medicine_id, dose, dose_type, time, method, is_notify, status)
-          VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+          (medicine_id, dose, dose_type, time, method, is_notify, status, notify_count, sent_at, response_at)
+          VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, NULL, NULL)`,
           [id, t.dose, t.dose_type, t.time, t.method, t.is_notify ? 1 : 0]
         );
         keepIds.push(result.insertId);

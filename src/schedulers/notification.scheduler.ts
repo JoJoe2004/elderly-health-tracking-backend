@@ -57,12 +57,13 @@ export const startMedicineScheduler = () => {
     `, [timeNow, today, today]);
 
       for (const row of rows) {
-
+  
   // 1️⃣ lock ก่อน (สำคัญมาก)
   const [result]: any = await db.query(`
     UPDATE medicine_times
     SET notify_count = notify_count + 1,
         sent_at = NOW()
+        status = 'waiting'
     WHERE id = ?
       AND notify_count = ?
   `, [row.id, row.notify_count]);
