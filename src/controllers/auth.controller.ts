@@ -44,12 +44,20 @@ export const login = async (req: Request, res: Response) => {
 export const register = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: "ข้อมูลไม่ครบ" });
-  }
-
   try {
-    // 1. เช็ก email ซ้ำ
+    // 1️⃣ เช็กข้อมูลครบ
+    if (!email || !password) {
+      return res.status(400).json({ message: "ข้อมูลไม่ครบ" });
+    }
+
+    // 2️⃣ เช็ก format email ก่อน (เร็วสุด ไม่แตะ DB)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "รูปแบบอีเมลไม่ถูกต้อง" });
+    }
+
+    // 3️⃣ เช็ก email ซ้ำ
     const [rows]: any = await db.query(
       "SELECT id FROM users WHERE email = ?",
       [email]
@@ -59,21 +67,23 @@ export const register = async (req: Request, res: Response) => {
       return res.status(409).json({ message: "อีเมลนี้ถูกใช้แล้ว" });
     }
 
-    // 2. hash password
+    // 4️⃣ hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // 3. insert user
+    // 5️⃣ insert
     await db.query(
       "INSERT INTO users (email, password_hash) VALUES (?, ?)",
       [email, passwordHash]
     );
 
     res.status(201).json({ message: "Register สำเร็จ" });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 
