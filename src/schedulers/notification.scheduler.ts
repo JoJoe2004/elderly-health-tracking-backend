@@ -62,7 +62,7 @@ export const startMedicineScheduler = () => {
   const [result]: any = await db.query(`
     UPDATE medicine_times
     SET notify_count = notify_count + 1,
-        sent_at = NOW()
+        sent_at = NOW(),
         status = 'waiting'
     WHERE id = ?
       AND notify_count = ?
