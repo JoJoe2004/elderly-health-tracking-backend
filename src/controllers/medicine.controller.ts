@@ -116,6 +116,7 @@ export const updateMedicine = async (req: Request, res: Response) => {
   }
 };
 
+
 // ลบเวลาทานยา (ถ้าเป็นเวลาสุดท้ายให้ลบตัวยาด้วย)
 export const deleteMedicineTime = async (req: Request, res: Response) => {
   const timeId = req.params.id;

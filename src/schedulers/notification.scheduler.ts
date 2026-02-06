@@ -48,10 +48,12 @@ export const startMedicineScheduler = () => {
             AND TIMESTAMPDIFF(MINUTE, mt.sent_at, NOW()) BETWEEN 5 AND 6
           )
         )
+        AND mt.response_at IS NULL
+        AND mt.notify_count < 3   
         AND mt.is_notify = 1
         AND m.start_date <= ?
         AND (m.end_date IS NULL OR m.end_date >= ?)
-        AND e.line_user_id IS NOT NULL
+        AND e.line_user_id IS NOT NULL 
     `, [timeNow, today, today]);
 
       for (const row of rows) {
@@ -73,8 +75,21 @@ export const startMedicineScheduler = () => {
   // 2️⃣ ค่อย push หลัง lock สำเร็จ
   const timeHHMM = row.time.slice(0, 5)
   const elderlyName = `${row.title}${row.first_name} ${row.last_name}`;
+    let prefix = "";
 
-  const message = `⏰ ถึงเวลาทานยาแล้ว
+  switch (row.notify_count) {
+    case 0:
+      prefix = "⏰ แจ้งเตือนทานยา";
+      break;
+    case 1:
+      prefix = "🔔 แจ้งเตือนครั้งที่ 2 อย่าลืมทานยา";
+      break;
+    case 2:
+      prefix = "⚠️ แจ้งเตือนครั้งสุดท้าย กรุณาทานยา";
+      break;
+  }
+
+  const message = `${prefix}
 ผู้สูงอายุ : ${elderlyName}
 ชื่อยา : ${row.medicine_name}
 ปริมาณ : ${row.dose} ${doseTypeMap[row.dose_type] || ""}
