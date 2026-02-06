@@ -25,7 +25,7 @@ export const startMedicineScheduler = () => {
       const timeNow = now.toTimeString().slice(0, 5);
       const today = now.toISOString().slice(0, 10);
 
-      const [rows]: any = await db.query(`
+       const [rows]: any = await db.query(`
       SELECT 
         mt.*, 
         m.medicine_name, 
@@ -37,69 +37,71 @@ export const startMedicineScheduler = () => {
       FROM medicine_times mt
       JOIN medicines m ON mt.medicine_id = m.id
       JOIN elderly e ON m.elderly_id = e.id
-      WHERE mt.time = ?
+      WHERE
+        (
+          (mt.time = ? AND mt.notify_count = 0)
+
+          OR
+
+          (
+            mt.notify_count IN (1, 2)
+            AND TIMESTAMPDIFF(MINUTE, mt.sent_at, NOW()) BETWEEN 5 AND 6
+          )
+        )
         AND mt.is_notify = 1
         AND m.start_date <= ?
         AND (m.end_date IS NULL OR m.end_date >= ?)
         AND e.line_user_id IS NOT NULL
     `, [timeNow, today, today]);
 
-
-
       for (const row of rows) {
-        const timeHHMM = row.time.slice(0, 5)
-        const elderlyName = `${row.title}${row.first_name} ${row.last_name}`;
 
-        const message = `⏰ ถึงเวลาทานยาแล้ว
+  // 1️⃣ lock ก่อน (สำคัญมาก)
+  const [result]: any = await db.query(`
+    UPDATE medicine_times
+    SET notify_count = notify_count + 1,
+        sent_at = NOW()
+    WHERE id = ?
+      AND notify_count = ?
+  `, [row.id, row.notify_count]);
+
+
+  // ถ้าไม่มี row ถูก update = มี instance อื่นส่งไปแล้ว
+  if (result.affectedRows === 0) continue;
+
+
+  // 2️⃣ ค่อย push หลัง lock สำเร็จ
+  const timeHHMM = row.time.slice(0, 5)
+  const elderlyName = `${row.title}${row.first_name} ${row.last_name}`;
+
+  const message = `⏰ ถึงเวลาทานยาแล้ว
 ผู้สูงอายุ : ${elderlyName}
 ชื่อยา : ${row.medicine_name}
 ปริมาณ : ${row.dose} ${doseTypeMap[row.dose_type] || ""}
 วิธีทาน : ${methodMap[row.method] || row.method}
-เวลา : ${timeHHMM}  น.`;
+เวลา : ${timeHHMM} น.`;
 
-        let imageUrl: string | null = null;
+  let imageUrl: string | null = null;
 
-        if (row.image) {
-          if (row.image.startsWith("http")) {
-            imageUrl = row.image; // Cloudinary
-          } else {
-            imageUrl = `${process.env.API_URL}${row.image}`; // local
-          }
-        }
-        await sendLineMedicineNotify(row.line_user_id, message, row.id, imageUrl);
+  if (row.image) {
+    imageUrl = row.image.startsWith("http")
+      ? row.image
+      : `${process.env.API_URL}${row.image}`;
+  }
 
-        // หลังส่ง LINE สำเร็จ
-        await db.query(`
-          UPDATE medicine_times 
-          SET status='waiting', sent_at=NOW()
-          WHERE id=?
-        `, [row.id]);
-      }
+  await sendLineMedicineNotify(row.line_user_id, message, row.id, imageUrl);
+}
     } catch (err) {
-      console.error("Scheduler error:", err);
+      console.error(err);
     }
-  });
-  
-   cron.schedule("*/5 * * * *", async () => {
-          try {
-            await db.query(`
-              UPDATE medicine_times
-              SET status = 'missed'
-              WHERE status = 'waiting'
-                AND sent_at IS NOT NULL
-                AND TIMESTAMPDIFF(MINUTE, sent_at, NOW()) >= 30
-            `);
-          } catch (err) {
-            console.error("Missed check error:", err);
-    }});
+});
 
-    cron.schedule(
-      "0 0 * * *",
-      async () => {
+    cron.schedule("0 0 * * *", async () => {
         try {
           await db.query(`
             UPDATE medicine_times
-            SET status='pending',
+            SET notify_count = 0,
+                status='pending',
                 sent_at=NULL,
                 response_at=NULL
           `);
@@ -110,6 +112,5 @@ export const startMedicineScheduler = () => {
       {
         timezone: "Asia/Bangkok",
       }
-    );
-
+    )
 };
