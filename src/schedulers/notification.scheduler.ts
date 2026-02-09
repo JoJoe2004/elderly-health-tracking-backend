@@ -2,6 +2,14 @@ import cron from "node-cron";
 import { db } from "../config/db";
 import { sendLineMedicineNotify } from "../services/line.service";
 
+const addMinutes = (timeStr: string, minutes: number) => {
+  const [h, m] = timeStr.split(":").map(Number);
+  const date = new Date();
+  date.setHours(h, m + minutes, 0, 0);
+
+  return date.toTimeString().slice(0, 5);
+};
+
 export const startMedicineScheduler = () => {
   const doseTypeMap: Record<string, string> = {
     tablet: "เม็ด",
@@ -55,8 +63,8 @@ export const startMedicineScheduler = () => {
         AND (m.end_date IS NULL OR m.end_date >= ?)
         AND e.line_user_id IS NOT NULL 
     `, [timeNow, today, today]);
-
-      for (const row of rows) {
+      
+  for (const row of rows) {
   
   // 1️⃣ lock ก่อน (สำคัญมาก)
   const [result]: any = await db.query(`
@@ -74,7 +82,15 @@ export const startMedicineScheduler = () => {
 
 
   // 2️⃣ ค่อย push หลัง lock สำเร็จ
-  const timeHHMM = row.time.slice(0, 5)
+  let timeHHMM = row.time.slice(0, 5);
+
+  if (row.notify_count === 1) {
+    timeHHMM = addMinutes(row.time, 5);
+  }
+  if (row.notify_count === 2) {
+    timeHHMM = addMinutes(row.time, 10);
+  }
+
   const elderlyName = `${row.title}${row.first_name} ${row.last_name}`;
     let prefix = "";
 
